@@ -1,0 +1,85 @@
+import socket
+import threading
+
+HOST = '0.0.0.0'
+PORT = 8000
+
+def udp_server():
+    # Membuat socket UDP
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.bind((HOST, 9000))
+
+    print("UDP Server berjalan di port 9000...")
+
+    while True:
+        # Terima data dari client
+        data, addr = udp_socket.recvfrom(1024)
+
+        print(f"UDP dari {addr}: {data.decode()}")
+
+        # Echo kembali data yang sama
+        udp_socket.sendto(data, addr)
+
+# Jalankan UDP server di thread terpisah
+threading.Thread(target=udp_server, daemon=True).start()
+
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind((HOST, PORT))
+server_socket.listen(5)
+
+print(f"Web Server berjalan di port {PORT}...")
+
+while True:
+
+    # Menerima koneksi dari client
+    client_socket, client_address = server_socket.accept()
+    print(f"Koneksi dari {client_address}")
+
+    # Menerima request dari client
+    request = client_socket.recv(1024).decode()
+    print("Request:\n", request)
+
+    try: 
+        
+        # Parsing request
+        request_line = request.split('\n')[0]
+        method, path, version = request_line.split()
+
+        if path == "/":
+            path = "/index.html"
+
+        file_path = path[1:]
+
+        # Membuka File
+        with open(file_path, 'rb') as file:
+            content = file.read()
+
+        # Response Sukes
+        response = "HTTP/1.1 200 OK\r\n"
+        response += "Content-Type: text/html\r\n"
+        response += f"Content-Length: {len(content)}\r\n"
+        response += "\r\n"
+        response += content
+
+        print(f"200 OK - {file_path}")
+
+    except FileNotFoundError:
+        # Jika file tidak ditemukan
+        response = "HTTP/1.1 404 Not Found\r\n\r\n"
+        response += "<h1>404 Not Found</h1>"
+
+        print(f"404 Not Found - {file_path}")
+
+    except Exception as e:
+        # Error umum
+        response = "HTTP/1.1 500 Internal Server Error\r\n\r\n"
+        response += "<h1>500 Internal Server Error</h1>"
+
+        print("Error:", e)
+
+    # Kirim response ke client
+    client_socket.sendall(response.encode())
+
+    # Tutup koneksi
+    client_socket.close()
+    
